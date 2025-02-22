@@ -100,6 +100,10 @@ protected:
   const Real _ao;
   const Real _xm;
   const Real _gss_initial;
+  const Real _disloc_density0;
+  const Real _k1;
+  const Real _k20;
+  const Real _gamma0;
   ///@}
 
   /**
@@ -110,6 +114,12 @@ protected:
 
   /// Increment of increased resistance for each slip system
   std::vector<Real> _slip_resistance_increment;
+  MaterialProperty<std::vector<Real>> & _disloc_h;
+  std::vector<Real> _disloc_h_increment;
+  MaterialProperty<std::vector<Real>> & _disloc_density;
+  const MaterialProperty<std::vector<Real>> & _slip_increment_old;
+  const MaterialProperty<std::vector<Real>> & _disloc_h_old;
+
 
   /**
    * Stores the values of the slip system resistance from the previous substep
@@ -117,6 +127,7 @@ protected:
    * substep vectors will be required.
    */
   std::vector<Real> _previous_substep_slip_resistance;
+  std::vector<Real> _previous_substep_disloc_h;
 
   /**
    * Caches the value of the current slip system resistance immediately prior
@@ -127,6 +138,7 @@ protected:
    * caching vectors will also be required.
    */
   std::vector<Real> _slip_resistance_before_update;
+  std::vector<Real> _disloc_h_before_update;
 
   /**
    * Flag to include the total twin volume fraction in the plastic velocity

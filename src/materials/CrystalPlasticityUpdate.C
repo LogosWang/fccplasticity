@@ -27,7 +27,10 @@ CrystalPlasticityUpdate::validParams()
   params.addParam<Real>("ao", 0.001, "slip rate coefficient");
   params.addParam<Real>("xm", 0.1, "exponent for slip rate");
   params.addParam<Real>("gss_initial", 60.8, "initial lattice friction strength of the material");
-
+  params.addParam<Real>("disloc_density0",std::pow(10.0,12.0),"density 0");
+  params.addParam<Real>("k1",450.0,"k1");
+  params.addParam<Real>("k20",14.0,"k20");
+  params.addParam<Real>("gamma0",3.0*std::pow(10.0,4.0),"gamma0");
   params.addParam<MaterialPropertyName>(
       "total_twin_volume_fraction",
       "Total twin volume fraction, if twinning is considered in the simulation");
@@ -48,21 +51,29 @@ CrystalPlasticityUpdate::CrystalPlasticityUpdate(
     _ao(getParam<Real>("ao")),
     _xm(getParam<Real>("xm")),
     _gss_initial(getParam<Real>("gss_initial")),
-
+    _disloc_density0(getParam<Real>("disloc_density0")),
+    _k1(getParam<Real>("k1")),
+    _k20(getParam<Real>("k20")),
+    _gamma0(getParam<Real>("gamma0")),
     // resize vectors used in the consititutive slip hardening
     _hb(_number_slip_systems, 0.0),
     _slip_resistance_increment(_number_slip_systems, 0.0),
-
+    _disloc_h(declareProperty<std::vector<Real>>("disloc_h")),
+    _disloc_h_increment(_number_slip_systems, 0.0),
+    _disloc_density(declareProperty<std::vector<Real>>("disloc_density")),
+    _slip_increment_old(getMaterialPropertyOld<std::vector<Real>>("slip_increment_old")),
+    _disloc_h_old(getMaterialPropertyOld<std::vector<Real>>("disloc_h_old")),
     // resize local caching vectors used for substepping
     _previous_substep_slip_resistance(_number_slip_systems, 0.0),
+    _previous_substep_disloc_h(_number_slip_systems, 0.0),
     _slip_resistance_before_update(_number_slip_systems, 0.0),
-
+    _disloc_h_before_update(_number_slip_systems, 0.0),
     // Twinning contributions, if used
     _include_twinning_in_Lp(parameters.isParamValid("total_twin_volume_fraction")),
-//     _twin_volume_fraction_total(_include_twinning_in_Lp
-//                                     ? &getMaterialPropertyOld<Real>("total_twin_volume_fraction")
-//                                     : nullptr)
-// {
+    _twin_volume_fraction_total(_include_twinning_in_Lp
+                                    ? &getMaterialPropertyOld<Real>("total_twin_volume_fraction")
+                                    : nullptr)
+{
   _theta=0.5*(1.0+std::tanh(_T/_T_critical));
 }
 
@@ -74,6 +85,8 @@ CrystalPlasticityUpdate::initQpStatefulProperties()
   {
     _slip_resistance[_qp][i] = _gss_initial;
     _slip_increment[_qp][i] = 0.0;
+    _disloc_h[_qp][i] = 1.0;
+    _disloc_density[_qp][i] = _disloc_density0;
   }
 }
 
@@ -83,6 +96,7 @@ CrystalPlasticityUpdate::setInitialConstitutiveVariableValues()
   // Would also set old dislocation densities here if included in this model
   _slip_resistance[_qp] = _slip_resistance_old[_qp];
   _previous_substep_slip_resistance = _slip_resistance_old[_qp];
+  _previous_substep_disloc_h = _disloc_h_old[_qp];
 }
 
 void
@@ -90,6 +104,7 @@ CrystalPlasticityUpdate::setSubstepConstitutiveVariableValues()
 {
   // Would also set substepped dislocation densities here if included in this model
   _slip_resistance[_qp] = _previous_substep_slip_resistance;
+  _disloc_h[_qp] = _previous_substep_disloc_h;
 }
 
 bool
@@ -158,17 +173,29 @@ CrystalPlasticityUpdate::updateSubstepConstitutiveVariableValues()
 {
   // Would also set substepped dislocation densities here if included in this model
   _previous_substep_slip_resistance = _slip_resistance[_qp];
+  _previous_substep_disloc_h = _disloc_h_old[_qp];
 }
 
 void
 CrystalPlasticityUpdate::cacheStateVariablesBeforeUpdate()
 {
   _slip_resistance_before_update = _slip_resistance[_qp];
+  _disloc_h_before_update = _disloc_h[_qp];
 }
 
 void
 CrystalPlasticityUpdate::calculateStateVariableEvolutionRateComponent()
 {
+  for (const auto i : make_range(_number_slip_systems))
+  {
+    if (_slip_increment_old[_qp][i]!=0.0){
+    Real _k2;
+    _k2=_k20*(_gamma0/std::abs(_slip_increment_old[_qp][i]));
+    _disloc_h_increment[i]=std::abs(_slip_increment_old[_qp][i])*(_k1*std::pow(_disloc_h_before_update[i],0.5)-_k2*_disloc_h_before_update[i]);
+    _disloc_h[_qp][i]+=_disloc_h_increment[i]*_substep_dt;
+    _disloc_density[_qp][i] = _disloc_h[_qp][i]*_disloc_density0;
+    }
+  }
   for (const auto i : make_range(_number_slip_systems))
   {
     // Clear out increment from the previous iteration
@@ -205,6 +232,8 @@ CrystalPlasticityUpdate::updateStateVariables()
   for (const auto i : make_range(_number_slip_systems))
   {
     _slip_resistance_increment[i] *= _substep_dt;
+    _disloc_h[_qp][i] += _disloc_h_increment[i]*_substep_dt;
+    _disloc_density[_qp][i] = _disloc_h[_qp][i]*_disloc_density0;
     if (_previous_substep_slip_resistance[i] < _zero_tol && _slip_resistance_increment[i] < 0.0)
       _slip_resistance[_qp][i] = _previous_substep_slip_resistance[i];
     else
