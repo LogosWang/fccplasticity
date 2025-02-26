@@ -36,6 +36,9 @@ CrystalPlasticityUpdate::validParams()
   params.addParam<MaterialPropertyName>(
       "total_twin_volume_fraction",
       "Total twin volume fraction, if twinning is considered in the simulation");
+  // params.addParam<MaterialProperty>("H_old","H");
+  // params.addParam<MaterialProperty>("disloc_h_old","disloch");
+  // params.addParam<MaterialProperty>("slip_increment_old","slip_incre");
   params.addRequiredParam<unsigned int>(
       "number_slip_systems",
       "The total number of possible active slip systems for the crystalline material");
@@ -72,9 +75,9 @@ CrystalPlasticityUpdate::CrystalPlasticityUpdate(
     _H_increment(RankTwoTensor::Identity()),
     // _H_increment(declareProperty<std::vector<RankTwoTensor>>("H_increment")),
     _disloc_density(declareProperty<std::vector<Real>>("disloc_density")),
-    _slip_increment_old(getMaterialPropertyOld<std::vector<Real>>("slip_increment_old")),
-    _disloc_h_old(getMaterialPropertyOld<std::vector<Real>>("disloc_h_old")),
-    _H_old(getMaterialPropertyOld<RankTwoTensor>("H_old")),
+    _slip_increment_old(getMaterialPropertyOld<std::vector<Real>>("slip_increment")),
+    _disloc_h_old(getMaterialPropertyOld<std::vector<Real>>("disloc_h")),
+    _H_old(getMaterialPropertyOld<RankTwoTensor>("H")),
     // resize local caching vectors used for substepping
     _previous_substep_slip_resistance(_number_slip_systems, 0.0),
     _previous_substep_disloc_h(_number_slip_systems, 0.0),
