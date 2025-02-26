@@ -8,6 +8,7 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "CrystalPlasticityUpdate.h"
+#include "CrystalPlasticityStressUpdateBase.h"
 #include "libmesh/int_range.h"
 #include <cmath>
 
@@ -18,6 +19,7 @@ CrystalPlasticityUpdate::validParams()
 {
   InputParameters params = CrystalPlasticityStressUpdateBase::validParams();
   params.addClassDescription("Kalidindi version of homogeneous crystal plasticity.");
+  // params.addParam<RankTwoTensor>("I",I.identity(), "identity");
   params.addParam<Real>("T", 295.0, "temperature");
   params.addParam<Real>("T_critical", 400.0, "critical temperature");
   params.addParam<Real>("r", 1.0, "Latent hardening coefficient");
@@ -34,7 +36,13 @@ CrystalPlasticityUpdate::validParams()
   params.addParam<MaterialPropertyName>(
       "total_twin_volume_fraction",
       "Total twin volume fraction, if twinning is considered in the simulation");
-
+  params.addRequiredParam<unsigned int>(
+      "number_slip_systems",
+      "The total number of possible active slip systems for the crystalline material");
+  params.addRequiredParam<FileName>(
+      "slip_sys_file_name",
+      "Name of the file containing the slip systems, one slip system per row, with the slip plane "
+      "normal given before the slip plane direction.");
   return params;
 }
 
@@ -59,22 +67,220 @@ CrystalPlasticityUpdate::CrystalPlasticityUpdate(
     _hb(_number_slip_systems, 0.0),
     _slip_resistance_increment(_number_slip_systems, 0.0),
     _disloc_h(declareProperty<std::vector<Real>>("disloc_h")),
+    _H(declareProperty<RankTwoTensor>("H")),
     _disloc_h_increment(_number_slip_systems, 0.0),
+    _H_increment(RankTwoTensor::Identity()),
+    // _H_increment(declareProperty<std::vector<RankTwoTensor>>("H_increment")),
     _disloc_density(declareProperty<std::vector<Real>>("disloc_density")),
     _slip_increment_old(getMaterialPropertyOld<std::vector<Real>>("slip_increment_old")),
     _disloc_h_old(getMaterialPropertyOld<std::vector<Real>>("disloc_h_old")),
+    _H_old(getMaterialPropertyOld<RankTwoTensor>("H_old")),
     // resize local caching vectors used for substepping
     _previous_substep_slip_resistance(_number_slip_systems, 0.0),
     _previous_substep_disloc_h(_number_slip_systems, 0.0),
+    _previous_substep_H(RankTwoTensor::Identity()),
     _slip_resistance_before_update(_number_slip_systems, 0.0),
     _disloc_h_before_update(_number_slip_systems, 0.0),
+    _H_before_update(RankTwoTensor::Identity()),
     // Twinning contributions, if used
     _include_twinning_in_Lp(parameters.isParamValid("total_twin_volume_fraction")),
     _twin_volume_fraction_total(_include_twinning_in_Lp
                                     ? &getMaterialPropertyOld<Real>("total_twin_volume_fraction")
-                                    : nullptr)
+                                    : nullptr),
+    _crysrot(getMaterialProperty<RankTwoTensor>("crysrot"))
+    // _number_slip_systems(getParam<unsigned int>("number_slip_systems")),
+    // _slip_sys_file_name(getParam<FileName>("slip_sys_file_name")),
+    // _slip_direction(_number_slip_systems),
+    // _slip_plane_normal(_number_slip_systems)
+
 {
   _theta=0.5*(1.0+std::tanh(_T/_T_critical));
+}
+void CrystalPlasticityUpdate::getSlipSystems()
+{
+  bool orthonormal_error = false;
+
+  // read in the slip system data from auxiliary text file
+  MooseUtils::DelimitedFileReader _reader(_slip_sys_file_name);
+  _reader.setFormatFlag(MooseUtils::DelimitedFileReader::FormatFlag::ROWS);
+  _reader.read();
+
+  // check the size of the input
+  if (_reader.getData().size() != _number_slip_systems)
+    paramError(
+        "number_slip_systems",
+        "The number of rows in the slip system file should match the number of slip system.");
+
+  for (const auto i : make_range(_number_slip_systems))
+  {
+    // initialize to zero
+    _slip_direction[i].zero();
+    _slip_plane_normal[i].zero();
+  }
+
+  if (_crystal_lattice_type == CrystalLatticeType::HCP)
+    transformHexagonalMillerBravaisSlipSystems(_reader);
+  else if (_crystal_lattice_type == CrystalLatticeType::BCC ||
+           _crystal_lattice_type == CrystalLatticeType::FCC)
+  {
+    for (const auto i : make_range(_number_slip_systems))
+    {
+      // directly grab the raw data and scale it by the unit cell dimension
+      for (const auto j : index_range(_reader.getData(i)))
+      {
+        if (j < LIBMESH_DIM)
+          _slip_plane_normal[i](j) = _reader.getData(i)[j] / _unit_cell_dimension[j];
+        else
+          _slip_direction[i](j - LIBMESH_DIM) =
+              _reader.getData(i)[j] * _unit_cell_dimension[j - LIBMESH_DIM];
+      }
+    }
+  }
+
+  for (const auto i : make_range(_number_slip_systems))
+  {
+    // normalize
+    _slip_plane_normal[i] /= _slip_plane_normal[i].norm();
+    _slip_direction[i] /= _slip_direction[i].norm();
+
+    if (_crystal_lattice_type != CrystalLatticeType::HCP)
+    {
+      const auto magnitude = _slip_plane_normal[i] * _slip_direction[i];
+      if (std::abs(magnitude) > libMesh::TOLERANCE)
+      {
+        orthonormal_error = true;
+        break;
+      }
+    }
+  }
+
+  if (orthonormal_error)
+    mooseError("CrystalPlasticityStressUpdateBase Error: The slip system file contains a slip "
+               "direction and plane normal pair that are not orthonormal in the Cartesian "
+               "coordinate system.");
+}
+std::vector<RealVectorValue> CrystalPlasticityUpdate::calplanenorm(
+    // const std::vector<RealVectorValue> & plane_normal_vector,
+    // const std::vector<RealVectorValue> & direction_vector,
+    // std::vector<RankTwoTensor> & schmid_tensor,
+    const RankTwoTensor & crysrot)
+{
+  // bool orthonormal_error = false;
+  // // using CrystalPlasticityStressUpdateBase::_number_slip_systems;
+  // // using CrystalPlasticityStressUpdateBase::_slip_sys_file_name;
+  // // using CrystalPlasticityStressUpdateBase::_slip_direction;
+  // // using CrystalPlasticityStressUpdateBase::_slip_plane_normal;
+  // // read in the slip system data from auxiliary text file
+  // MooseUtils::DelimitedFileReader _reader(_slip_sys_file_name);
+  // _reader.setFormatFlag(MooseUtils::DelimitedFileReader::FormatFlag::ROWS);
+  // _reader.read();
+
+  // // check the size of the input
+  // if (_reader.getData().size() != _number_slip_systems)
+  //   paramError(
+  //       "number_slip_systems",
+  //       "The number of rows in the slip system file should match the number of slip system.");
+
+  // for (const auto i : make_range(_number_slip_systems))
+  // {
+  //   // initialize to zero
+  //   _slip_direction[i].zero();
+  //   _slip_plane_normal[i].zero();
+  // }
+
+  // if (_crystal_lattice_type == CrystalLatticeType::HCP)
+  //   transformHexagonalMillerBravaisSlipSystems(_reader);
+  // else if (_crystal_lattice_type == CrystalLatticeType::BCC ||
+  //          _crystal_lattice_type == CrystalLatticeType::FCC)
+  // {
+  //   for (const auto i : make_range(this->_number_slip_systems))
+  //   {
+  //     // directly grab the raw data and scale it by the unit cell dimension
+  //     for (const auto j : index_range(_reader.getData(i)))
+  //     {
+  //       if (j < LIBMESH_DIM)
+  //       _slip_plane_normal[i](j) = _reader.getData(i)[j] / _unit_cell_dimension[j];
+  //       else
+  //       _slip_direction[i](j - LIBMESH_DIM) =
+  //             _reader.getData(i)[j] * _unit_cell_dimension[j - LIBMESH_DIM];
+  //     }
+  //   }
+  // }
+
+  // for (const auto i : make_range(_number_slip_systems))
+  // {
+  //   // normalize
+  //   _slip_plane_normal[i] /= _slip_plane_normal[i].norm();
+  //   _slip_direction[i] /= _slip_direction[i].norm();
+
+  //   if (_crystal_lattice_type != CrystalLatticeType::HCP)
+  //   {
+  //     const auto magnitude = _slip_plane_normal[i] * _slip_direction[i];
+  //     if (std::abs(magnitude) > libMesh::TOLERANCE)
+  //     {
+  //       orthonormal_error = true;
+  //       break;
+  //     }
+  //   }
+  // }
+
+  // if (orthonormal_error)
+  //   mooseError("CrystalPlasticityStressUpdateBase Error: The slip system file contains a slip "
+  //              "direction and plane normal pair that are not orthonormal in the Cartesian "
+  //              "coordinate system.");
+  CrystalPlasticityUpdate::getSlipSystems();
+
+
+  std::vector<RealVectorValue> local_plane_normal;
+  // local_direction_vector.resize(number_slip_systems);
+  local_plane_normal.resize(_number_slip_systems);
+
+  // Update slip direction and normal with crystal orientation
+  for (const auto i : make_range(_number_slip_systems))
+  {
+    // local_direction_vector[i].zero();
+    local_plane_normal[i].zero();
+
+    for (const auto j : make_range(LIBMESH_DIM))
+      for (const auto k : make_range(LIBMESH_DIM))
+      {
+        // local_direction_vector[i](j) =
+        //     local_direction_vector[i](j) + crysrot(j, k) * direction_vector[i](k);
+
+        local_plane_normal[i](j) =
+            local_plane_normal[i](j) + crysrot(j, k) * _slip_plane_normal[i](k);
+      }
+
+    // Calculate Schmid tensor
+  //   for (const auto j : make_range(LIBMESH_DIM))
+  //     for (const auto k : make_range(LIBMESH_DIM))
+  //     {
+  //       schmid_tensor[i](j, k) = local_direction_vector[i](j) * local_plane_normal[i](k);
+  //     }
+  }
+  return local_plane_normal;
+}
+RankTwoTensor initH(Real _number_of_loop)
+{
+  RankTwoTensor a;
+  RankTwoTensor H;
+  for (const auto i : make_range(_number_of_loop))
+  {
+    std::random_device rd;
+    std::mt19937 gen(rd());  // Mersenne Twister engine
+    std::uniform_real_distribution<Real> dist(-1.0, 1.0);
+
+    Real x = dist(gen);
+    Real y = dist(gen);
+    Real z = dist(gen);
+    Real magnitude = std::sqrt(x * x + y * y + z * z);
+    RealVectorValue n_l(x / magnitude, y / magnitude, z / magnitude);
+    RankTwoTensor I;
+    I=RankTwoTensor::Identity();
+    a += (I-outer_product(n_l,n_l))*3.0*10.0*std::pow(10.0,-9.0);
+  }
+  H=a/std::pow(10.0,-18.0);
+  return H;
 }
 
 void
@@ -88,6 +294,7 @@ CrystalPlasticityUpdate::initQpStatefulProperties()
     _disloc_h[_qp][i] = 1.0;
     _disloc_density[_qp][i] = _disloc_density0;
   }
+  _H[_qp] = initH(100);
 }
 
 void
@@ -97,6 +304,7 @@ CrystalPlasticityUpdate::setInitialConstitutiveVariableValues()
   _slip_resistance[_qp] = _slip_resistance_old[_qp];
   _previous_substep_slip_resistance = _slip_resistance_old[_qp];
   _previous_substep_disloc_h = _disloc_h_old[_qp];
+  _previous_substep_H = _H_old[_qp];
 }
 
 void
@@ -105,6 +313,7 @@ CrystalPlasticityUpdate::setSubstepConstitutiveVariableValues()
   // Would also set substepped dislocation densities here if included in this model
   _slip_resistance[_qp] = _previous_substep_slip_resistance;
   _disloc_h[_qp] = _previous_substep_disloc_h;
+  _H[_qp] = _previous_substep_H;
 }
 
 bool
@@ -174,6 +383,7 @@ CrystalPlasticityUpdate::updateSubstepConstitutiveVariableValues()
   // Would also set substepped dislocation densities here if included in this model
   _previous_substep_slip_resistance = _slip_resistance[_qp];
   _previous_substep_disloc_h = _disloc_h_old[_qp];
+  _previous_substep_H = _H_old[_qp];
 }
 
 void
@@ -181,19 +391,23 @@ CrystalPlasticityUpdate::cacheStateVariablesBeforeUpdate()
 {
   _slip_resistance_before_update = _slip_resistance[_qp];
   _disloc_h_before_update = _disloc_h[_qp];
+  _H_before_update = _H[_qp];
 }
 
 void
 CrystalPlasticityUpdate::calculateStateVariableEvolutionRateComponent()
 {
+  std::vector<RealVectorValue> pnormal;
+  pnormal=CrystalPlasticityUpdate::calplanenorm(_crysrot[_qp]);
   for (const auto i : make_range(_number_slip_systems))
   {
     if (_slip_increment_old[_qp][i]!=0.0){
     Real _k2;
     _k2=_k20*(_gamma0/std::abs(_slip_increment_old[_qp][i]));
     _disloc_h_increment[i]=std::abs(_slip_increment_old[_qp][i])*(_k1*std::pow(_disloc_h_before_update[i],0.5)-_k2*_disloc_h_before_update[i]);
-    _disloc_h[_qp][i]+=_disloc_h_increment[i]*_substep_dt;
-    _disloc_density[_qp][i] = _disloc_h[_qp][i]*_disloc_density0;
+    RankTwoTensor Pnormal;
+    Pnormal=outer_product(pnormal[i],pnormal[i]);
+    _H_increment+=-100.0*(Pnormal.doubleContraction(_H_before_update))*Pnormal*_slip_increment_old[_qp][i];
     }
   }
   for (const auto i : make_range(_number_slip_systems))
@@ -229,16 +443,26 @@ bool
 CrystalPlasticityUpdate::updateStateVariables()
 {
   // Now perform the check to see if the slip system should be updated
+  // std::vector<RealVectorValue> local_plane_normal;
+  _H_increment*=_substep_dt;
+  _H[_qp]+=_H_increment;
+  std::vector<RealVectorValue> pnormal;
+  pnormal=CrystalPlasticityUpdate::calplanenorm(_crysrot[_qp]);
   for (const auto i : make_range(_number_slip_systems))
   {
-    _slip_resistance_increment[i] *= _substep_dt;
+    RankTwoTensor Pnormal;
+    Pnormal=outer_product(pnormal[i],pnormal[i]);
+    // _slip_resistance_increment[i] *= _substep_dt;
     _disloc_h[_qp][i] += _disloc_h_increment[i]*_substep_dt;
     _disloc_density[_qp][i] = _disloc_h[_qp][i]*_disloc_density0;
-    if (_previous_substep_slip_resistance[i] < _zero_tol && _slip_resistance_increment[i] < 0.0)
-      _slip_resistance[_qp][i] = _previous_substep_slip_resistance[i];
-    else
-      _slip_resistance[_qp][i] =
-          _previous_substep_slip_resistance[i] + _slip_resistance_increment[i];
+    // _H_increment*=_substep_dt;
+    // _H[_qp]+=_H_increment;
+    _slip_resistance[_qp][i] = _gss_initial+2.48*std::pow(10.0,-10.0)*86.0*std::pow(10.0,6.0)*(std::pow(_disloc_density[_qp][i]*0.125,0.5)+std::pow(0.675*Pnormal.doubleContraction(_H[_qp]),0.5));
+    // if (_previous_substep_slip_resistance[i] < _zero_tol && _slip_resistance_increment[i] < 0.0)
+    //   _slip_resistance[_qp][i] = _previous_substep_slip_resistance[i];
+    // else
+    //   _slip_resistance[_qp][i] =
+    //       _previous_substep_slip_resistance[i] + _slip_resistance_increment[i];
 
     if (_slip_resistance[_qp][i] < 0.0)
       return false;

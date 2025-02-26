@@ -10,7 +10,10 @@
 #pragma once
 
 #include "CrystalPlasticityStressUpdateBase.h"
-
+#include "RankTwoTensor.h"
+#include <random> 
+#include "libmesh/vector_value.h"
+#include "ComputeElasticityTensorCP.h"
 class CrystalPlasticityUpdate;
 
 /**
@@ -88,8 +91,10 @@ protected:
    * by comparing the change in the values over the iteration period.
    */
   virtual bool areConstitutiveStateVariablesConverged() override;
-
+  virtual void getSlipSystems() override;
+  std::vector<RealVectorValue> calplanenorm(const RankTwoTensor & crysrot);
   ///@{Varibles used in the Kalidindi 1992 slip system resistance constiutive model
+  RankTwoTensor _I;
   Real _T;
   Real _T_critical;
   Real _theta;
@@ -104,6 +109,7 @@ protected:
   const Real _k1;
   const Real _k20;
   const Real _gamma0;
+  std::vector<RealVectorValue> local_plane_normal;
   ///@}
 
   /**
@@ -115,11 +121,13 @@ protected:
   /// Increment of increased resistance for each slip system
   std::vector<Real> _slip_resistance_increment;
   MaterialProperty<std::vector<Real>> & _disloc_h;
+  MaterialProperty<RankTwoTensor> & _H;
   std::vector<Real> _disloc_h_increment;
+  RankTwoTensor _H_increment;
   MaterialProperty<std::vector<Real>> & _disloc_density;
   const MaterialProperty<std::vector<Real>> & _slip_increment_old;
   const MaterialProperty<std::vector<Real>> & _disloc_h_old;
-
+  const MaterialProperty<RankTwoTensor> & _H_old;
 
   /**
    * Stores the values of the slip system resistance from the previous substep
@@ -128,7 +136,7 @@ protected:
    */
   std::vector<Real> _previous_substep_slip_resistance;
   std::vector<Real> _previous_substep_disloc_h;
-
+  RankTwoTensor _previous_substep_H;
   /**
    * Caches the value of the current slip system resistance immediately prior
    * to the update of the slip system resistance, and is used to calculate the
@@ -139,7 +147,7 @@ protected:
    */
   std::vector<Real> _slip_resistance_before_update;
   std::vector<Real> _disloc_h_before_update;
-
+  RankTwoTensor _H_before_update;
   /**
    * Flag to include the total twin volume fraction in the plastic velocity
    * gradient calculation, per Kalidindi IJP (2001).
@@ -154,4 +162,9 @@ protected:
    * value by a single timestep.
    */
   const MaterialProperty<Real> * const _twin_volume_fraction_total;
+  const MaterialProperty<RankTwoTensor> & _crysrot;
+  // using CrystalPlasticityStressUpdateBase::_number_slip_systems;
+  // using CrystalPlasticityStressUpdateBase::_slip_sys_file_name;
+  // using CrystalPlasticityStressUpdateBase::_slip_direction;
+  // using CrystalPlasticityStressUpdateBase::_slip_plane_normal;
 };
