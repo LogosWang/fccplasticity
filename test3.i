@@ -6,8 +6,8 @@
   [cube]
     type = GeneratedMeshGenerator
     dim = 3
-    nx = 10
-    ny = 10
+    nx = 40
+    ny = 40
     nz = 10
     xmin = 0.0
     ymin = 0.0
@@ -20,7 +20,7 @@
 []
 
 [AuxVariables]
-  [fp_yy]
+  [fp_zz]
     order = CONSTANT
     family = MONOMIAL
   []
@@ -76,54 +76,6 @@
     order = CONSTANT
     family = MONOMIAL
   []
-  [disloc_density_0]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [disloc_density_1]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [disloc_density_2]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [disloc_density_3]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [disloc_density_4]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [disloc_density_5]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [disloc_density_6]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [disloc_density_7]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [disloc_density_8]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [disloc_density_9]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [disloc_density_10]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [disloc_density_11]
-    order = CONSTANT
-    family = MONOMIAL
-  []
 []
 
 [Physics/SolidMechanics/QuasiStatic/all]
@@ -132,9 +84,9 @@
 []
 
 [AuxKernels]
-  [fp_yy]
+  [fp_zz]
     type = RankTwoAux
-    variable = fp_yy
+    variable = fp_zz
     rank_two_tensor = plastic_deformation_gradient
     index_j = 2
     index_i = 2
@@ -224,106 +176,22 @@
    index = 11
    execute_on = timestep_end
   []
-  [disloc_density_0]
-   type = MaterialStdVectorAux
-   variable = disloc_density_0
-   property = disloc_density
-   index = 0
-   execute_on = timestep_end
-  []
-  [disloc_density_1]
-   type = MaterialStdVectorAux
-   variable = disloc_density_1
-   property = disloc_density
-   index = 1
-   execute_on = timestep_end
-  []
-  [disloc_density_2]
-   type = MaterialStdVectorAux
-   variable = disloc_density_2
-   property = disloc_density
-   index = 2
-   execute_on = timestep_end
-  []
-  [disloc_density_3]
-   type = MaterialStdVectorAux
-   variable = disloc_density_3
-   property = disloc_density
-   index = 3
-   execute_on = timestep_end
-  []
-  [disloc_density_4]
-   type = MaterialStdVectorAux
-   variable = disloc_density_4
-   property = disloc_density
-   index = 4
-   execute_on = timestep_end
-  []
-  [disloc_density_5]
-   type = MaterialStdVectorAux
-   variable = disloc_density_5
-   property = disloc_density
-   index = 5
-   execute_on = timestep_end
-  []
-  [disloc_density_6]
-   type = MaterialStdVectorAux
-   variable = disloc_density_6
-   property = disloc_density
-   index = 6
-   execute_on = timestep_end
-  []
-  [disloc_density_7]
-   type = MaterialStdVectorAux
-   variable = disloc_density_7
-   property = disloc_density
-   index = 7
-   execute_on = timestep_end
-  []
-  [disloc_density_8]
-   type = MaterialStdVectorAux
-   variable = disloc_density_8
-   property = disloc_density
-   index = 8
-   execute_on = timestep_end
-  []
-  [disloc_density_9]
-   type = MaterialStdVectorAux
-   variable = disloc_density_9
-   property = disloc_density
-   index = 9
-   execute_on = timestep_end
-  []
-  [disloc_density_10]
-   type = MaterialStdVectorAux
-   variable = disloc_density_10
-   property = disloc_density
-   index = 10
-   execute_on = timestep_end
-  []
-  [disloc_density_11]
-   type = MaterialStdVectorAux
-   variable = disloc_density_11
-   property = disloc_density
-   index = 11
-   execute_on = timestep_end
-  []
 []
 
 [BCs]
-  [fix_y]
+  [fix_z]
     type = DirichletBC
     variable = disp_y
     preset = true
     boundary = 'bottom'
     value = 0
   []
-  [tdisp]
-    type = FunctionDirichletBC
-    variable = disp_y
-    boundary = top
-    function = '(3e-6)*t'
+  [Pressure]
+  [load]
+    boundary = 'top'
+    function = '1e9'
   []
+[]
 []
 
 [Materials]
@@ -346,9 +214,9 @@
 []
 
 [Postprocessors]
-  [fp_yy]
+  [fp_zz]
     type = ElementExtremeValue
-    variable = fp_yy
+    variable = fp_zz
   []
   [total_twin_volume_fraction]
     type = ElementAverageValue
@@ -414,71 +282,12 @@
     variable = slip_increment_11
     value_type = max
   []
-  [disp_y]
+  [disp_z]
     type = ElementExtremeValue
-    variable = disp_y
+    variable = disp_z
     value_type = max
   []
-  [disloc_density_0]
-    type = ElementExtremeValue
-    variable = disloc_density_0
-    value_type = max
-  []
-  [disloc_density_1]
-    type = ElementExtremeValue
-    variable = disloc_density_1
-    value_type = max
-  []
-  [disloc_density_2]
-    type = ElementExtremeValue
-    variable = disloc_density_2
-    value_type = max
-  []
-  [disloc_density_3]
-    type = ElementExtremeValue
-    variable = disloc_density_3
-    value_type = max
-  []
-  [disloc_density_4]
-    type = ElementExtremeValue
-    variable = disloc_density_4
-    value_type = max
-  []
-  [disloc_density_5]
-    type = ElementExtremeValue
-    variable = disloc_density_5
-    value_type = max
-  []
-  [disloc_density_6]
-    type = ElementExtremeValue
-    variable = disloc_density_6
-    value_type = max
-  []
-  [disloc_density_7]
-    type = ElementExtremeValue
-    variable = disloc_density_7
-    value_type = max
-  []
-  [disloc_density_8]
-    type = ElementExtremeValue
-    variable = disloc_density_8
-    value_type = max
-  []
-  [disloc_density_9]
-    type = ElementExtremeValue
-    variable = disloc_density_9
-    value_type = max
-  []
-  [disloc_density_10]
-    type = ElementExtremeValue
-    variable = disloc_density_10
-    value_type = max
-  []
-  [disloc_density_11]
-    type = ElementExtremeValue
-    variable = disloc_density_11
-    value_type = max
-  []
+ 
 []
 
 [Preconditioning]
@@ -494,13 +303,13 @@
 
   petsc_options_iname = '-pc_type -pc_asm_overlap -sub_pc_type -ksp_type -ksp_gmres_restart'
   petsc_options_value = ' asm      2              lu            gmres     200'
-  nl_abs_tol = 1e2
+  nl_abs_tol = 1e5
   nl_rel_tol = 1e-3
-  nl_abs_step_tol = 1e2
+  nl_abs_step_tol = 1e5
 
-  dt = 1e-5
-  dtmin = 1e-100
-  num_steps = 1000
+  dt = 0.00000001
+  dtmin = 1e-20
+  num_steps = 20
 []
 
 [Outputs]

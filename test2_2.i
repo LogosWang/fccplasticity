@@ -322,7 +322,7 @@
     type = FunctionDirichletBC
     variable = disp_y
     boundary = top
-    function = '(3e-6)*t'
+    function = '(3e-9)*t'
   []
 []
 
@@ -498,9 +498,9 @@
   nl_rel_tol = 1e-3
   nl_abs_step_tol = 1e2
 
-  dt = 1e-5
-  dtmin = 1e-100
-  num_steps = 1000
+  dt = 1e-7
+  dtmin = 1e-15
+  num_steps = 5000
 []
 
 [Outputs]

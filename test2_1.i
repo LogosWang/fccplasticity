@@ -498,8 +498,8 @@
   nl_rel_tol = 1e-3
   nl_abs_step_tol = 1e2
 
-  dt = 1e-5
-  dtmin = 1e-100
+  dt = 1e-7
+  dtmin = 1e-15
   num_steps = 1000
 []
 

@@ -109,8 +109,8 @@ protected:
   const Real _k1;
   const Real _k20;
   const Real _gamma0;
-  std::vector<RealVectorValue> local_plane_normal;
-  ///@}
+  // std::vector<RealVectorValue> local_plane_normal;
+  std::vector<RealVectorValue> _slip_plane_normal;
 
   /**
    * Slip system interaction matrix used to calculate the hardening contributions
