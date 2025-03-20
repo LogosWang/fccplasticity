@@ -12,9 +12,9 @@
     xmin = 0.0
     ymin = 0.0
     zmin = 0.0
-    xmax = 0.000003
-    ymax = 0.000003
-    zmax = 0.000003
+    xmax = 0.003
+    ymax = 0.003
+    zmax = 0.003
     elem_type = HEX8
   []
 []
@@ -322,14 +322,14 @@
     type = FunctionDirichletBC
     variable = disp_y
     boundary = top
-    function = '(3e-6)*t'
+    function = '(3e-1)*t'
   []
 []
 
 [Materials]
   [elasticity_tensor]
     type = ComputeElasticityTensorCP
-    C_ijkl = '3.01e11 1.29e11 1.29e11 3.01e11 1.29e11 3.01e11 8.6e10 8.6e10 8.6e10' 
+    C_ijkl = '3.01e5 1.29e5 1.29e5 3.01e5 1.29e5 3.01e5 8.6e4 8.6e4 8.6e4' 
     fill_method = symmetric9
   []
   [stress]
@@ -494,12 +494,12 @@
 
   petsc_options_iname = '-pc_type -pc_asm_overlap -sub_pc_type -ksp_type -ksp_gmres_restart'
   petsc_options_value = ' asm      2              lu            gmres     200'
-  nl_abs_tol = 1e2
-  nl_rel_tol = 1e-3
-  nl_abs_step_tol = 1e2
+  nl_abs_tol = 1e-6
+  nl_rel_tol = 1e-6
+  nl_abs_step_tol = 1e-6
 
-  dt = 1e-5
-  dtmin = 1e-100
+  dt = 1e-6
+  dtmin = 1e-10
   num_steps = 1000
 []
 

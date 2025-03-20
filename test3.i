@@ -6,9 +6,9 @@
   [cube]
     type = GeneratedMeshGenerator
     dim = 3
-    nx = 40
-    ny = 40
-    nz = 10
+    nx = 2
+    ny = 2
+    nz = 2
     xmin = 0.0
     ymin = 0.0
     zmin = 0.0
@@ -189,7 +189,7 @@
   [Pressure]
   [load]
     boundary = 'top'
-    function = '1e9'
+    function = '1.1695e10'
   []
 []
 []
@@ -307,9 +307,9 @@
   nl_rel_tol = 1e-3
   nl_abs_step_tol = 1e5
 
-  dt = 0.00000001
+  dt = 0.00001
   dtmin = 1e-20
-  num_steps = 20
+  num_steps = 1000
 []
 
 [Outputs]

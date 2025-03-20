@@ -12,15 +12,19 @@
     xmin = 0.0
     ymin = 0.0
     zmin = 0.0
-    xmax = 3
-    ymax = 3
-    zmax = 3
+    xmax = 0.003
+    ymax = 0.003
+    zmax = 0.003
     elem_type = HEX8
   []
 []
 
 [AuxVariables]
   [fp_yy]
+    order = CONSTANT
+    family = MONOMIAL
+  []
+  [stress_yy]
     order = CONSTANT
     family = MONOMIAL
   []
@@ -136,6 +140,14 @@
     type = RankTwoAux
     variable = fp_yy
     rank_two_tensor = plastic_deformation_gradient
+    index_j = 2
+    index_i = 2
+    execute_on = timestep_end
+  []
+  [stress_yy]
+    type = RankTwoAux
+    variable = stress_yy
+    rank_two_tensor = stress
     index_j = 2
     index_i = 2
     execute_on = timestep_end
@@ -322,7 +334,7 @@
     type = FunctionDirichletBC
     variable = disp_y
     boundary = top
-    function = '(3e1)*t'
+    function = '(3e-1)*t'
   []
 []
 
@@ -349,6 +361,10 @@
   [fp_yy]
     type = ElementExtremeValue
     variable = fp_yy
+  []
+  [stress_yy]
+    type = ElementExtremeValue
+    variable = stress_yy
   []
   [total_twin_volume_fraction]
     type = ElementAverageValue
@@ -494,13 +510,13 @@
 
   petsc_options_iname = '-pc_type -pc_asm_overlap -sub_pc_type -ksp_type -ksp_gmres_restart'
   petsc_options_value = ' asm      2              lu            gmres     200'
-  nl_abs_tol = 1e2
-  nl_rel_tol = 1e-3
-  nl_abs_step_tol = 1e2
+  nl_abs_tol = 1e-6
+  nl_rel_tol = 1e-6
+  nl_abs_step_tol = 1e-6
 
   dt = 1e-7
-  dtmin = 1e-15
-  num_steps = 1000
+  dtmin = 1e-10
+  end_time = 1e-3
 []
 
 [Outputs]
