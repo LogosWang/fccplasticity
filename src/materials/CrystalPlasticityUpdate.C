@@ -29,7 +29,7 @@ CrystalPlasticityUpdate::validParams()
   params.addParam<Real>("ao", 30000.1, "slip rate coefficient");
   params.addParam<Real>("xm", 0.01, "exponent for slip rate");
   params.addParam<Real>("gss_initial", 90.8, "initial lattice friction strength of the material");
-  params.addParam<Real>("disloc_density0",std::pow(10.0,3.0),"density 0");
+  params.addParam<Real>("disloc_density0",std::pow(10.0,6.0),"density 0");
   params.addParam<Real>("k1",450,"k1");
   params.addParam<Real>("k20",14.0,"k20");
   params.addParam<Real>("gamma0",1.0*std::pow(10.0,6.0),"gamma0");
