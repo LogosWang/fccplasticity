@@ -30,7 +30,7 @@ public:
   static InputParameters validParams();
 
   CrystalPlasticityUpdate(const InputParameters & parameters);
-
+  FileName _plane_file_name;
 protected:
   /**
    * initializes the stateful properties such as

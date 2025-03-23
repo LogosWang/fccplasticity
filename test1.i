@@ -353,7 +353,7 @@
     type = CrystalPlasticityUpdate
     number_slip_systems = 12
     slip_sys_file_name = input_slip_sys.txt
-    
+    plane_file_name = plane.txt
   []
 []
 
@@ -515,7 +515,7 @@
   nl_abs_step_tol = 1e-6
 
   dt = 1e-7
-  dtmin = 1e-10
+  dtmin = 1e-20
   end_time = 1e-3
 []
 

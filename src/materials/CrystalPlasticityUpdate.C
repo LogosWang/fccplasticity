@@ -46,6 +46,7 @@ CrystalPlasticityUpdate::validParams()
       "slip_sys_file_name",
       "Name of the file containing the slip systems, one slip system per row, with the slip plane "
       "normal given before the slip plane direction.");
+  params.addRequiredParam<FileName>("plane_file_name","irradiation");
   return params;
 }
 
@@ -53,6 +54,7 @@ CrystalPlasticityUpdate::CrystalPlasticityUpdate(
     const InputParameters & parameters)
   : CrystalPlasticityStressUpdateBase(parameters),
     // Constitutive values
+    _plane_file_name(getParam<FileName>("plane_file_name")),
     _T(getParam<Real>("T")),
     _T_critical(getParam<Real>("T_critical")),
     _r(getParam<Real>("r")),
@@ -92,8 +94,6 @@ CrystalPlasticityUpdate::CrystalPlasticityUpdate(
                                     ? &getMaterialPropertyOld<Real>("total_twin_volume_fraction")
                                     : nullptr),
     _crysrot(getMaterialProperty<RankTwoTensor>("crysrot"))
-    // _number_slip_systems(getParam<unsigned int>("number_slip_systems")),
-    // _slip_sys_file_name(getParam<FileName>("slip_sys_file_name")),
     // _slip_direction(_number_slip_systems),
     // _slip_plane_normal(_number_slip_systems)
 
@@ -197,7 +197,7 @@ std::vector<RealVectorValue> CrystalPlasticityUpdate::calplanenorm(const RankTwo
   }
   return local_plane_normal;
 }
-RankTwoTensor initH(Real _number_of_loop)
+RankTwoTensor initH(Real _number_of_loop,FileName _plane_file_name,const RankTwoTensor & crysrot)
 {
   RankTwoTensor a;
   std::vector<RankTwoTensor> b;
@@ -207,13 +207,51 @@ RankTwoTensor initH(Real _number_of_loop)
   {
     std::random_device rd;
     std::mt19937 gen(rd());  // Mersenne Twister engine
-    std::uniform_real_distribution<Real> dist(-1.0, 1.0);
-
-    Real x = dist(gen);
-    Real y = dist(gen);
-    Real z = dist(gen);
-    Real magnitude = std::sqrt(x * x + y * y + z * z);
-    RealVectorValue n_l(x / magnitude, y / magnitude, z / magnitude);
+    MooseUtils::DelimitedFileReader _reader(_plane_file_name);
+    _reader.setFormatFlag(MooseUtils::DelimitedFileReader::FormatFlag::ROWS);
+    _reader.read();
+    Real _irrplane_num=_reader.getData().size();
+    std::uniform_int_distribution<> dis(0, _irrplane_num - 1);
+    std::vector<RealVectorValue> _plane_normal;
+    _plane_normal.resize(_irrplane_num);
+    for (const auto j : make_range(_irrplane_num))
+    {
+      _plane_normal[j].zero();
+    }
+  
+    
+      for (const auto j : make_range(_irrplane_num))
+      {
+        // directly grab the raw data and scale it by the unit cell dimension
+        for (const auto k : index_range(_reader.getData(j)))
+        {
+          _plane_normal[j](k) = _reader.getData(j)[k];
+        }
+      }
+      for (const auto j : make_range(_irrplane_num))
+      {
+        _plane_normal[j] /= _plane_normal[i].norm();
+      }
+      std::vector<RealVectorValue> loc_plane_normal;
+      loc_plane_normal.resize(_irrplane_num);
+      for (const auto j : make_range(_irrplane_num))
+      {
+        loc_plane_normal[j].zero();
+        for (const auto k : make_range(LIBMESH_DIM))
+          for (const auto l : make_range(LIBMESH_DIM))
+          {
+            loc_plane_normal[j](k) =
+            loc_plane_normal[j](k) + crysrot(k,l) * _plane_normal[j](l);
+          } 
+      }
+    
+    // Real x = dist(gen);
+    // Real y = dist(gen);
+    // Real z = dist(gen);
+    // Real magnitude = std::sqrt(x * x + y * y + z * z);
+    // RealVectorValue n_l(x / magnitude, y / magnitude, z / magnitude);
+    int x=dis(gen);
+    RealVectorValue n_l=loc_plane_normal[x];
     RankTwoTensor I;
     I=RankTwoTensor::Identity();
     b[i] = (I-outer_product(n_l,n_l))*3.0*2.86*std::pow(10.0,-5.0);
@@ -237,7 +275,7 @@ CrystalPlasticityUpdate::initQpStatefulProperties()
     _disloc_h[_qp][i] = 1.0;
     // _disloc_density[_qp][i] = _disloc_density0;
   }
-  _H[_qp] = initH(100);
+  _H[_qp] = initH(100,_plane_file_name,_crysrot[_qp]);
 }
 
 void
