@@ -22,9 +22,10 @@ CrystalPlasticityUpdate::validParams()
   // params.addParam<RankTwoTensor>("I",I.identity(), "identity");
   params.addParam<Real>("T", 295.0, "temperature");
   params.addParam<Real>("T_critical", 400.0, "critical temperature");
+  params.addParam<Real>("loop_num", "damage");
   params.addParam<Real>("r", 1.0, "Latent hardening coefficient");
   params.addParam<Real>("h", 541.5, "hardening constants");
-  params.addParam<Real>("t_sat", 109.8, "saturated slip system strength");
+  params.addParam<Real>("t_sat", 2000.8, "saturated slip system strength");
   params.addParam<Real>("gss_a", 25000.0, "coefficient for hardening");
   params.addParam<Real>("ao", 30000.1, "slip rate coefficient");
   params.addParam<Real>("xm", 0.01, "exponent for slip rate");
@@ -32,7 +33,7 @@ CrystalPlasticityUpdate::validParams()
   params.addParam<Real>("disloc_density0",std::pow(10.0,6.0),"density 0");
   params.addParam<Real>("k1",450,"k1");
   params.addParam<Real>("k20",14.0,"k20");
-  params.addParam<Real>("gamma0",1.0*std::pow(10.0,6.0),"gamma0");
+  params.addParam<Real>("gamma0",1.0*std::pow(10.0,1.0),"gamma0");
   params.addParam<MaterialPropertyName>(
       "total_twin_volume_fraction",
       "Total twin volume fraction, if twinning is considered in the simulation");
@@ -57,6 +58,7 @@ CrystalPlasticityUpdate::CrystalPlasticityUpdate(
     _plane_file_name(getParam<FileName>("plane_file_name")),
     _T(getParam<Real>("T")),
     _T_critical(getParam<Real>("T_critical")),
+    _loop_num(getParam<Real>("loop_num")),
     _r(getParam<Real>("r")),
     _h(getParam<Real>("h")),
     _tau_sat(getParam<Real>("t_sat")),
@@ -230,7 +232,7 @@ RankTwoTensor initH(Real _number_of_loop,FileName _plane_file_name,const RankTwo
       }
       for (const auto j : make_range(_irrplane_num))
       {
-        _plane_normal[j] /= _plane_normal[i].norm();
+        _plane_normal[j] /= _plane_normal[j].norm();
       }
       std::vector<RealVectorValue> loc_plane_normal;
       loc_plane_normal.resize(_irrplane_num);
@@ -254,8 +256,8 @@ RankTwoTensor initH(Real _number_of_loop,FileName _plane_file_name,const RankTwo
     RealVectorValue n_l=loc_plane_normal[x];
     RankTwoTensor I;
     I=RankTwoTensor::Identity();
-    b[i] = (I-outer_product(n_l,n_l))*3.0*2.86*std::pow(10.0,-5.0);
-    a += b[i];
+    b[i] = (I-outer_product(n_l,n_l))*3.0*2.46*std::pow(10.0,-5.0);
+    a += 100.0*b[i];
   }
   H=a/(27*std::pow(10.0,-9.0));
   return H;
@@ -272,10 +274,10 @@ CrystalPlasticityUpdate::initQpStatefulProperties()
     _slip_resistance[_qp][i] = _gss_initial;
     _slip_increment[_qp][i] = 0.0;
     _disloc_density[_qp][i] = _disloc_density0;
-    _disloc_h[_qp][i] = 1.0;
+    _disloc_h[_qp][i] = 20.0;
     // _disloc_density[_qp][i] = _disloc_density0;
   }
-  _H[_qp] = initH(100,_plane_file_name,_crysrot[_qp]);
+  _H[_qp] = initH(_loop_num,_plane_file_name,_crysrot[_qp]);
 }
 
 void
@@ -385,7 +387,7 @@ CrystalPlasticityUpdate::calculateStateVariableEvolutionRateComponent()
     if (_slip_increment_old[_qp][i]!=0.0){
     Real _k2;
     _k2=_k20*(_gamma0/std::abs(_slip_increment_old[_qp][i]));
-    _disloc_h_increment[i]=std::abs(_slip_increment_old[_qp][i])*(_k1*std::pow(_disloc_h_before_update[i],0.5)/(2.48*std::pow(10,-7))/std::pow(_disloc_density0,0.5)-_k2*_disloc_h_before_update[i]);
+    _disloc_h_increment[i]=std::abs(_slip_increment_old[_qp][i])*(_k1*std::pow(_disloc_h_before_update[i],0.5)-_k2*_disloc_h_before_update[i]);
     RankTwoTensor Pnormal;
     Pnormal=outer_product(pnormal[i],pnormal[i]);
     _H_increment+=-100.0*(Pnormal.doubleContraction(_H_before_update))*Pnormal*std::abs(_slip_increment_old[_qp][i]);
@@ -436,11 +438,11 @@ CrystalPlasticityUpdate::updateStateVariables()
     // _slip_resistance_increment[i] *= _substep_dt;
     _disloc_h[_qp][i] += _disloc_h_increment[i]*_substep_dt;
     // _disloc_density[_qp][i] = std::max(0.0,_disloc_h[_qp][i]*_disloc_density0);
-    _disloc_h[_qp][i]=std::max(0.0001,_disloc_h[_qp][i]);
+    _disloc_h[_qp][i]=std::max(20.0,_disloc_h[_qp][i]);
     _disloc_density[_qp][i] = std::max(0.0,_disloc_h[_qp][i]*_disloc_density0);
     // _H_increment*=_substep_dt;
     // _H[_qp]+=_H_increment;
-    _slip_resistance[_qp][i] = _gss_initial+2.48*std::pow(10.0,-7.0)*86.0*std::pow(10.0,3.0)*(std::pow(std::max(0.0,_disloc_density[_qp][i]*125.0),0.5)+std::pow(0.675*std::max(Pnormal.doubleContraction(_H[_qp]),0.0),0.5));
+    _slip_resistance[_qp][i] = _gss_initial+2.48*std::pow(10.0,-7.0)*86.0*std::pow(10.0,3.0)*(std::pow(std::max(0.0,_disloc_density[_qp][i]*0.125),0.5)+std::pow(0.675*std::max(Pnormal.doubleContraction(_H[_qp]),0.0),0.5));
     // _slip_resistance[_qp][i] = _gss_initial;
     if (_slip_resistance[_qp][i]==0.0)
     {
