@@ -23,6 +23,7 @@ CrystalPlasticityUpdate::validParams()
   params.addParam<Real>("T", 295.0, "temperature");
   params.addParam<Real>("T_critical", 400.0, "critical temperature");
   params.addParam<Real>("loop_num", "damage");
+  params.addParam<Real>("amp", "amplify");
   params.addParam<Real>("r", 1.0, "Latent hardening coefficient");
   params.addParam<Real>("h", 541.5, "hardening constants");
   params.addParam<Real>("t_sat", 2000.8, "saturated slip system strength");
@@ -31,7 +32,7 @@ CrystalPlasticityUpdate::validParams()
   params.addParam<Real>("xm", 0.01, "exponent for slip rate");
   params.addParam<Real>("gss_initial", 90.8, "initial lattice friction strength of the material");
   params.addParam<Real>("disloc_density0",std::pow(10.0,6.0),"density 0");
-  params.addParam<Real>("k1",450,"k1");
+  params.addParam<Real>("k1",100,"k1");
   params.addParam<Real>("k20",14.0,"k20");
   params.addParam<Real>("gamma0",1.0*std::pow(10.0,1.0),"gamma0");
   params.addParam<MaterialPropertyName>(
@@ -59,6 +60,7 @@ CrystalPlasticityUpdate::CrystalPlasticityUpdate(
     _T(getParam<Real>("T")),
     _T_critical(getParam<Real>("T_critical")),
     _loop_num(getParam<Real>("loop_num")),
+    _amp(getParam<Real>("amp")),
     _r(getParam<Real>("r")),
     _h(getParam<Real>("h")),
     _tau_sat(getParam<Real>("t_sat")),
@@ -199,7 +201,7 @@ std::vector<RealVectorValue> CrystalPlasticityUpdate::calplanenorm(const RankTwo
   }
   return local_plane_normal;
 }
-RankTwoTensor initH(Real _number_of_loop,FileName _plane_file_name,const RankTwoTensor & crysrot)
+RankTwoTensor initH(Real _number_of_loop,Real _amp,FileName _plane_file_name,const RankTwoTensor & crysrot)
 {
   RankTwoTensor a;
   std::vector<RankTwoTensor> b;
@@ -257,7 +259,7 @@ RankTwoTensor initH(Real _number_of_loop,FileName _plane_file_name,const RankTwo
     RankTwoTensor I;
     I=RankTwoTensor::Identity();
     b[i] = (I-outer_product(n_l,n_l))*3.0*2.46*std::pow(10.0,-5.0);
-    a += 100.0*b[i];
+    a += _amp*b[i];
   }
   H=a/(27*std::pow(10.0,-9.0));
   return H;
@@ -277,7 +279,7 @@ CrystalPlasticityUpdate::initQpStatefulProperties()
     _disloc_h[_qp][i] = 20.0;
     // _disloc_density[_qp][i] = _disloc_density0;
   }
-  _H[_qp] = initH(_loop_num,_plane_file_name,_crysrot[_qp]);
+  _H[_qp] = initH(_loop_num,_amp,_plane_file_name,_crysrot[_qp]);
 }
 
 void
@@ -382,12 +384,18 @@ CrystalPlasticityUpdate::calculateStateVariableEvolutionRateComponent()
 {
   std::vector<RealVectorValue> pnormal;
   pnormal=CrystalPlasticityUpdate::calplanenorm(_crysrot[_qp]);
+  std::vector<Real> absslip;
+  absslip.resize(_number_slip_systems);
+  for (const auto i : make_range(_number_slip_systems))
+  {
+    absslip[i]=std::abs(_slip_increment_old[_qp][i]);
+  }
   for (const auto i : make_range(_number_slip_systems))
   {
     if (_slip_increment_old[_qp][i]!=0.0){
     Real _k2;
-    _k2=_k20*(_gamma0/std::abs(_slip_increment_old[_qp][i]));
-    _disloc_h_increment[i]=std::abs(_slip_increment_old[_qp][i])*(_k1*std::pow(_disloc_h_before_update[i],0.5)-_k2*_disloc_h_before_update[i]);
+    _k2=_k20*(_gamma0/std::abs(std::accumulate(absslip.begin(),absslip.end(),0.0)));
+    _disloc_h_increment[i]=std::abs(std::accumulate(absslip.begin(),absslip.end(),0.0))*(_k1*std::pow(_disloc_h_before_update[i],0.5)-_k2*_disloc_h_before_update[i]);
     RankTwoTensor Pnormal;
     Pnormal=outer_product(pnormal[i],pnormal[i]);
     _H_increment+=-100.0*(Pnormal.doubleContraction(_H_before_update))*Pnormal*std::abs(_slip_increment_old[_qp][i]);

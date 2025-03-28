@@ -1288,7 +1288,7 @@ execute_on = timestep_end
   []
   [slip_xtalpl]
     type = CrystalPlasticityUpdate
-    loop_num = 1000
+    loop_num = 1
     number_slip_systems = 48
     slip_sys_file_name = input_slip_sys_bcc48.txt
     plane_file_name = bcc_plane.txt

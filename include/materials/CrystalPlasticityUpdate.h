@@ -99,6 +99,7 @@ protected:
   Real _T_critical;
   Real _theta;
   Real _loop_num;
+  Real _amp;
   const Real _r;
   const Real _h;
   const Real _tau_sat;
