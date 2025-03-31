@@ -420,51 +420,7 @@
     order = CONSTANT
     family = MONOMIAL
   []
-  [disloc_density_0]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [disloc_density_1]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [disloc_density_2]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [disloc_density_3]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [disloc_density_4]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [disloc_density_5]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [disloc_density_6]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [disloc_density_7]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [disloc_density_8]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [disloc_density_9]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [disloc_density_10]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [disloc_density_11]
+  [disloc_density]
     order = CONSTANT
     family = MONOMIAL
   []
@@ -1172,90 +1128,13 @@ execute_on = timestep_end
   index = 47
   execute_on = timestep_end
  []
-  [disloc_density_0]
-   type = MaterialStdVectorAux
-   variable = disloc_density_0
+  [disloc_density]
+   type = MaterialRealAux
+   variable = disloc_density
    property = disloc_density
-   index = 0
    execute_on = timestep_end
   []
-  [disloc_density_1]
-   type = MaterialStdVectorAux
-   variable = disloc_density_1
-   property = disloc_density
-   index = 1
-   execute_on = timestep_end
-  []
-  [disloc_density_2]
-   type = MaterialStdVectorAux
-   variable = disloc_density_2
-   property = disloc_density
-   index = 2
-   execute_on = timestep_end
-  []
-  [disloc_density_3]
-   type = MaterialStdVectorAux
-   variable = disloc_density_3
-   property = disloc_density
-   index = 3
-   execute_on = timestep_end
-  []
-  [disloc_density_4]
-   type = MaterialStdVectorAux
-   variable = disloc_density_4
-   property = disloc_density
-   index = 4
-   execute_on = timestep_end
-  []
-  [disloc_density_5]
-   type = MaterialStdVectorAux
-   variable = disloc_density_5
-   property = disloc_density
-   index = 5
-   execute_on = timestep_end
-  []
-  [disloc_density_6]
-   type = MaterialStdVectorAux
-   variable = disloc_density_6
-   property = disloc_density
-   index = 6
-   execute_on = timestep_end
-  []
-  [disloc_density_7]
-   type = MaterialStdVectorAux
-   variable = disloc_density_7
-   property = disloc_density
-   index = 7
-   execute_on = timestep_end
-  []
-  [disloc_density_8]
-   type = MaterialStdVectorAux
-   variable = disloc_density_8
-   property = disloc_density
-   index = 8
-   execute_on = timestep_end
-  []
-  [disloc_density_9]
-   type = MaterialStdVectorAux
-   variable = disloc_density_9
-   property = disloc_density
-   index = 9
-   execute_on = timestep_end
-  []
-  [disloc_density_10]
-   type = MaterialStdVectorAux
-   variable = disloc_density_10
-   property = disloc_density
-   index = 10
-   execute_on = timestep_end
-  []
-  [disloc_density_11]
-   type = MaterialStdVectorAux
-   variable = disloc_density_11
-   property = disloc_density
-   index = 11
-   execute_on = timestep_end
-  []
+  
 []
 
 [BCs]
@@ -1279,7 +1158,7 @@ execute_on = timestep_end
     type = ComputeElasticityTensorCP
     C_ijkl = '2.36e5 1.34e5 1.34e5 2.36e5 1.34e5 2.36e5 1.19e5 1.19e5 1.19e5' 
     fill_method = symmetric9
-    euler_angle_variables = '80.0 110.0 40.0'
+    euler_angle_variables = '0.0 0.0 0.0'
   []
   [stress]
     type = ComputeMultipleCrystalPlasticityStress
@@ -1288,7 +1167,8 @@ execute_on = timestep_end
   []
   [slip_xtalpl]
     type = CrystalPlasticityUpdate
-    loop_num = 1
+    loop_num = 10
+    amp = 0.0
     number_slip_systems = 48
     slip_sys_file_name = input_slip_sys_bcc48.txt
     plane_file_name = bcc_plane.txt
@@ -1701,66 +1581,12 @@ execute_on = timestep_end
     variable = disp_y
     value_type = max
   []
-  [disloc_density_0]
+  [disloc_density]
     type = ElementExtremeValue
-    variable = disloc_density_0
+    variable = disloc_density
     value_type = max
   []
-  [disloc_density_1]
-    type = ElementExtremeValue
-    variable = disloc_density_1
-    value_type = max
-  []
-  [disloc_density_2]
-    type = ElementExtremeValue
-    variable = disloc_density_2
-    value_type = max
-  []
-  [disloc_density_3]
-    type = ElementExtremeValue
-    variable = disloc_density_3
-    value_type = max
-  []
-  [disloc_density_4]
-    type = ElementExtremeValue
-    variable = disloc_density_4
-    value_type = max
-  []
-  [disloc_density_5]
-    type = ElementExtremeValue
-    variable = disloc_density_5
-    value_type = max
-  []
-  [disloc_density_6]
-    type = ElementExtremeValue
-    variable = disloc_density_6
-    value_type = max
-  []
-  [disloc_density_7]
-    type = ElementExtremeValue
-    variable = disloc_density_7
-    value_type = max
-  []
-  [disloc_density_8]
-    type = ElementExtremeValue
-    variable = disloc_density_8
-    value_type = max
-  []
-  [disloc_density_9]
-    type = ElementExtremeValue
-    variable = disloc_density_9
-    value_type = max
-  []
-  [disloc_density_10]
-    type = ElementExtremeValue
-    variable = disloc_density_10
-    value_type = max
-  []
-  [disloc_density_11]
-    type = ElementExtremeValue
-    variable = disloc_density_11
-    value_type = max
-  []
+  
 []
 
 [Preconditioning]

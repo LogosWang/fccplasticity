@@ -1158,7 +1158,7 @@ execute_on = timestep_end
     type = ComputeElasticityTensorCP
     C_ijkl = '2.36e5 1.34e5 1.34e5 2.36e5 1.34e5 2.36e5 1.19e5 1.19e5 1.19e5' 
     fill_method = symmetric9
-    euler_angle_variables = '1.0 2.0 1.0'
+    euler_angle_variables = '0.0 0.0 0.0'
   []
   [stress]
     type = ComputeMultipleCrystalPlasticityStress
@@ -1167,7 +1167,7 @@ execute_on = timestep_end
   []
   [slip_xtalpl]
     type = CrystalPlasticityUpdate
-    loop_num = 1000
+    loop_num = 200
     amp = 100.0
     number_slip_systems = 48
     slip_sys_file_name = input_slip_sys_bcc48.txt
@@ -1606,7 +1606,7 @@ execute_on = timestep_end
   nl_rel_tol = 1e-10
   nl_abs_step_tol = 1e-10
 
-  dt = 1e-7
+  dt = 5e-7
   dtmin = 1e-15
   end_time = 1e-3
 []

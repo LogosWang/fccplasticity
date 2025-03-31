@@ -1128,12 +1128,13 @@ execute_on = timestep_end
   index = 47
   execute_on = timestep_end
  []
- [disloc_density]
- type = MaterialRealAux
- variable = disloc_density
- property = disloc_density
- execute_on = timestep_end
-[]
+  [disloc_density]
+   type = MaterialStdVectorAux
+   variable = disloc_density
+   property = disloc_density
+   index = 0
+   execute_on = timestep_end
+  []
   
 []
 
@@ -1158,7 +1159,7 @@ execute_on = timestep_end
     type = ComputeElasticityTensorCP
     C_ijkl = '2.36e5 1.34e5 1.34e5 2.36e5 1.34e5 2.36e5 1.19e5 1.19e5 1.19e5' 
     fill_method = symmetric9
-    euler_angle_variables = '1.0 2.0 1.0'
+    euler_angle_variables = '80.0 110.0 40.0'
   []
   [stress]
     type = ComputeMultipleCrystalPlasticityStress
@@ -1168,7 +1169,7 @@ execute_on = timestep_end
   [slip_xtalpl]
     type = CrystalPlasticityUpdate
     loop_num = 1000
-    amp = 100.0
+    amp = 400.0
     number_slip_systems = 48
     slip_sys_file_name = input_slip_sys_bcc48.txt
     plane_file_name = bcc_plane.txt
@@ -1602,12 +1603,12 @@ execute_on = timestep_end
 
   petsc_options_iname = '-pc_type -pc_asm_overlap -sub_pc_type -ksp_type -ksp_gmres_restart'
   petsc_options_value = ' asm      2              lu            gmres     200'
-  nl_abs_tol = 1e-10
-  nl_rel_tol = 1e-10
-  nl_abs_step_tol = 1e-10
+  nl_abs_tol = 1e-7
+  nl_rel_tol = 1e-7
+  nl_abs_step_tol = 1e-7
 
-  dt = 1e-7
-  dtmin = 1e-15
+  dt = 1e-5
+  dtmin = 1e-10
   end_time = 1e-3
 []
 
