@@ -1158,7 +1158,7 @@ execute_on = timestep_end
     type = ComputeElasticityTensorCP
     C_ijkl = '2.36e5 1.34e5 1.34e5 2.36e5 1.34e5 2.36e5 1.19e5 1.19e5 1.19e5' 
     fill_method = symmetric9
-    euler_angle_variables = '0.0 0.0 0.0'
+    euler_angle_variables = '1.0 2.0 1.0'
   []
   [stress]
     type = ComputeMultipleCrystalPlasticityStress
@@ -1602,11 +1602,11 @@ execute_on = timestep_end
 
   petsc_options_iname = '-pc_type -pc_asm_overlap -sub_pc_type -ksp_type -ksp_gmres_restart'
   petsc_options_value = ' asm      2              lu            gmres     200'
-  nl_abs_tol = 1e-7
-  nl_rel_tol = 1e-7
-  nl_abs_step_tol = 1e-7
+  nl_abs_tol = 1e-10
+  nl_rel_tol = 1e-10
+  nl_abs_step_tol = 1e-10
 
-  dt = 1e-5
+  dt = 1e-7
   dtmin = 1e-10
   end_time = 1e-3
 []

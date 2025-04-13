@@ -127,6 +127,8 @@ protected:
   Real _disloc_h_increment;
   RankTwoTensor _H_increment;
   MaterialProperty<Real> & _disloc_density;
+  MaterialProperty<Real> & _srate;
+  MaterialProperty<std::vector<Real>> & _gd;
   const MaterialProperty<std::vector<Real>> & _slip_increment_old;
   const MaterialProperty<Real> & _disloc_h_old;
   const MaterialProperty<RankTwoTensor> & _H_old;

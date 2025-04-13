@@ -82,6 +82,8 @@ CrystalPlasticityUpdate::CrystalPlasticityUpdate(
     _H_increment(RankTwoTensor::Identity()),
     // _H_increment(declareProperty<std::vector<RankTwoTensor>>("H_increment")),
     _disloc_density(declareProperty<Real>("disloc_density")),
+    _srate(declareProperty<Real>("sliprate")),
+    _gd(declareProperty<std::vector<Real>>("gd")),
     _slip_increment_old(getMaterialPropertyOld<std::vector<Real>>("slip_increment")),
     _disloc_h_old(getMaterialPropertyOld<Real>("disloc_h")),
     _H_old(getMaterialPropertyOld<RankTwoTensor>("H")),
@@ -269,9 +271,11 @@ void
 CrystalPlasticityUpdate::initQpStatefulProperties()
 {
   CrystalPlasticityStressUpdateBase::initQpStatefulProperties();
+  _gd[_qp].resize(_number_slip_systems);
   for (const auto i : make_range(_number_slip_systems))
   {
     _slip_resistance[_qp][i] = _gss_initial;
+    _gd[_qp][i] = 0.0;
     _slip_increment[_qp][i] = 0.0;
     // _disloc_density[_qp][i] = _disloc_density0;
   }
@@ -391,6 +395,7 @@ CrystalPlasticityUpdate::calculateStateVariableEvolutionRateComponent()
   Real _k2;
   _k2=_k20*(_gamma0/std::abs(std::accumulate(absslip.begin(),absslip.end(),0.0)));
   _disloc_h_increment=std::abs(std::accumulate(absslip.begin(),absslip.end(),0.0))*(_k1*std::pow(_disloc_h_before_update,0.5)-_k2*_disloc_h_before_update);
+  _srate[_qp]=std::abs(std::accumulate(absslip.begin(),absslip.end(),0.0));
   for (const auto i : make_range(_number_slip_systems))
   {
     if (_slip_increment_old[_qp][i]!=0.0){
@@ -447,6 +452,7 @@ CrystalPlasticityUpdate::updateStateVariables()
     Pnormal=outer_product(pnormal[i],pnormal[i]);
     // _H[_qp]+=_H_increment;
     _slip_resistance[_qp][i] = _gss_initial+2.48*std::pow(10.0,-7.0)*86.0*std::pow(10.0,3.0)*(std::pow(std::max(0.0,_disloc_density[_qp]*0.125),0.5)+std::pow(0.675*std::max(Pnormal.doubleContraction(_H[_qp]),0.0),0.5));
+    _gd[_qp][i] = 2.48*std::pow(10.0,-7.0)*86.0*std::pow(10.0,3.0)*(std::pow(0.675*std::max(Pnormal.doubleContraction(_H[_qp]),0.0),0.5));
     // _slip_resistance[_qp][i] = _gss_initial;
     if (_slip_resistance[_qp][i]==0.0)
     {

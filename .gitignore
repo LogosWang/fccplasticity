@@ -20,8 +20,7 @@
 *.aux
 *.toc
 *.snm
-*.csv
-*.csv.*
+
 *.dylib
 *.so
 *.so.*
@@ -29,7 +28,6 @@
 *.jou
 *.pyc
 *.mod
-*.e.*
 *.e-s*
 *.cfg
 *.lbd.*
@@ -41,7 +39,6 @@
 *.bbl
 *.blg
 *.spl
-*.idx
 traceout*.txt
 temp_print_trace.*
 *.xda
@@ -59,18 +56,14 @@ temp_print_trace.*
 *.mpx
 *.btr
 *.tex-e
-*.xml
-*.xml.*
 *.gmv
 *.plt
 *.slh
 *.eps
-*.dat
 *.gp
 *.plugin
 *.outp
 *.patch
-*.txt
 *.bib.bak
 *.out
 *.vtk
