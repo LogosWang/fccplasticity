@@ -11,6 +11,7 @@
 #include "CrystalPlasticityStressUpdateBase.h"
 #include "libmesh/int_range.h"
 #include <cmath>
+#include <iostream>
 
 registerMooseObject("SolidMechanicsApp", CrystalPlasticityUpdate);
 
@@ -49,6 +50,8 @@ CrystalPlasticityUpdate::validParams()
       "Name of the file containing the slip systems, one slip system per row, with the slip plane "
       "normal given before the slip plane direction.");
   params.addRequiredParam<FileName>("plane_file_name","irradiation");
+  params.addCoupledVar("euler_angle_variables",
+    "Vector of coupled variables representing the Euler angles' components.");
   return params;
 }
 
@@ -56,6 +59,9 @@ CrystalPlasticityUpdate::CrystalPlasticityUpdate(
     const InputParameters & parameters)
   : CrystalPlasticityStressUpdateBase(parameters),
     // Constitutive values
+    _read_prop_user_object(isParamValid("read_prop_user_object")
+                               ? &getUserObject<PropertyReadFile>("read_prop_user_object")
+                               : nullptr),
     _plane_file_name(getParam<FileName>("plane_file_name")),
     _T(getParam<Real>("T")),
     _T_critical(getParam<Real>("T_critical")),
@@ -77,6 +83,9 @@ CrystalPlasticityUpdate::CrystalPlasticityUpdate(
     _hb(_number_slip_systems, 0.0),
     _slip_resistance_increment(_number_slip_systems, 0.0),
     _disloc_h(declareProperty<Real>("disloc_h")),
+    _cry(declareProperty<RankTwoTensor>("cry")),
+    _euler_ang(getMaterialProperty<RealVectorValue>("Euler_angles")),
+    _euler_angle(declareProperty<RealVectorValue>("euler_angle")),
     _H(declareProperty<RankTwoTensor>("H")),
     _disloc_h_increment(0.0),
     _H_increment(RankTwoTensor::Identity()),
@@ -99,12 +108,55 @@ CrystalPlasticityUpdate::CrystalPlasticityUpdate(
     _twin_volume_fraction_total(_include_twinning_in_Lp
                                     ? &getMaterialPropertyOld<Real>("total_twin_volume_fraction")
                                     : nullptr),
-    _crysrot(getMaterialProperty<RankTwoTensor>("crysrot"))
+    _crysrot(getMaterialProperty<RankTwoTensor>("crysrot")),
+    _n_euler_angle_vars(coupledComponents("euler_angle_variables")),
+    _euler_angle_vars(coupledValues("euler_angle_variables"))
     // _slip_direction(_number_slip_systems),
     // _slip_plane_normal(_number_slip_systems)
 
 {
   _theta=0.5*(1.0+std::tanh(_T/_T_critical));
+}
+void CrystalPlasticityUpdate::updateCry()
+{
+  if (_read_prop_user_object)
+  {
+    _euler_angle[_qp](0) = _read_prop_user_object->getData(_current_elem, 0);
+    _euler_angle[_qp](1) = _read_prop_user_object->getData(_current_elem, 1);
+    _euler_angle[_qp](2) = _read_prop_user_object->getData(_current_elem, 2);
+  }
+  else if (_n_euler_angle_vars)
+  {
+    _euler_angle[_qp](0) = (*_euler_angle_vars[0])[_qp];
+    _euler_angle[_qp](1) = (*_euler_angle_vars[1])[_qp];
+    _euler_angle[_qp](2) = (*_euler_angle_vars[2])[_qp];
+  }
+  else{
+    _euler_angle[_qp](0) = 0.0;
+    _euler_angle[_qp](1) = 0.0;
+    _euler_angle[_qp](2) = 0.0;
+  }
+  RankTwoTensor _R;
+  _R==RankTwoTensor::Identity();
+  Real phi1 = _euler_angle[_qp](0) * 3.14 / 180.0;
+  Real Phi = _euler_angle[_qp](1) * 3.14 / 180.0;
+  Real phi2 = _euler_angle[_qp](2) * 3.14 / 180.0;
+  RankTwoTensor Rz1, Rx, Rz2;
+  Rz1(0,0) =  std::cos(phi1); Rz1(0,1) = -std::sin(phi1); Rz1(0,2) = 0.0;
+  Rz1(1,0) =  std::sin(phi1); Rz1(1,1) =  std::cos(phi1); Rz1(1,2) = 0.0;
+  Rz1(2,0) = 0.0; Rz1(2,1) = 0.0; Rz1(2,2) = 1.0;
+
+  Rx(0,0) = 1.0;  Rx(0,1) =    0.0;            Rx(0,2) =    0.0;
+  Rx(1,0) = 0.0;  Rx(1,1) =  std::cos(Phi);     Rx(1,2) = -std::sin(Phi);
+  Rx(2,0) = 0.0;  Rx(2,1) =  std::sin(Phi);     Rx(2,2) =  std::cos(Phi);
+
+    // ——— Z 轴再转 phi2 ———
+  Rz2(0,0) =  std::cos(phi2); Rz2(0,1) = -std::sin(phi2); Rz2(0,2) = 0.0;
+  Rz2(1,0) =  std::sin(phi2); Rz2(1,1) =  std::cos(phi2); Rz2(1,2) = 0.0;
+  Rz2(2,0) = 0.0; Rz2(2,1) = 0.0; Rz2(2,2) = 1.0;
+
+  _R = Rz1 * Rx * Rz2;
+  _cry[_qp]= _R.transpose();
 }
 void CrystalPlasticityUpdate::getSlipSystems()
 {
@@ -203,7 +255,7 @@ std::vector<RealVectorValue> CrystalPlasticityUpdate::calplanenorm(const RankTwo
   }
   return local_plane_normal;
 }
-RankTwoTensor initH(Real _number_of_loop,Real _amp,FileName _plane_file_name,const RankTwoTensor & crysrot)
+RankTwoTensor initH(Real _number_of_loop,Real _amp,FileName _plane_file_name,RankTwoTensor crysrot)
 {
   RankTwoTensor a;
   std::vector<RankTwoTensor> b;
@@ -236,19 +288,26 @@ RankTwoTensor initH(Real _number_of_loop,Real _amp,FileName _plane_file_name,con
       }
       for (const auto j : make_range(_irrplane_num))
       {
+        std::cout <<_plane_normal[j]<< std::endl;
         _plane_normal[j] /= _plane_normal[j].norm();
+        std::cout <<_plane_normal[j]<< std::endl;
+        std::cout <<_plane_normal[j].norm()<< std::endl;
       }
       std::vector<RealVectorValue> loc_plane_normal;
       loc_plane_normal.resize(_irrplane_num);
       for (const auto j : make_range(_irrplane_num))
       {
         loc_plane_normal[j].zero();
+        std::cout <<crysrot<< std::endl;
         for (const auto k : make_range(LIBMESH_DIM))
-          for (const auto l : make_range(LIBMESH_DIM))
+        {  
+        for (const auto l : make_range(LIBMESH_DIM))
           {
             loc_plane_normal[j](k) =
             loc_plane_normal[j](k) + crysrot(k,l) * _plane_normal[j](l);
-          } 
+          }
+        }
+        std::cout <<loc_plane_normal[j]<< std::endl;
       }
     
     // Real x = dist(gen);
@@ -259,8 +318,9 @@ RankTwoTensor initH(Real _number_of_loop,Real _amp,FileName _plane_file_name,con
     int x=dis(gen);
     RealVectorValue n_l=loc_plane_normal[x];
     RankTwoTensor I;
+    std::cout <<n_l<< std::endl;
     I=RankTwoTensor::Identity();
-    b[i] = (I-outer_product(n_l,n_l))*3.0*2.46*std::pow(10.0,-5.0);
+    b[i] = (I-outer_product(n_l,n_l))*3.0*2.48*std::pow(10.0,-5.0);
     a += _amp*b[i];
   }
   H=a/(27*std::pow(10.0,-9.0));
@@ -281,7 +341,9 @@ CrystalPlasticityUpdate::initQpStatefulProperties()
   }
   _disloc_density[_qp] = _disloc_density0;
   _disloc_h[_qp] = 20.0;
-  _H[_qp] = initH(_loop_num,_amp,_plane_file_name,_crysrot[_qp]);
+  std::cout <<_crysrot[_qp]<< std::endl;
+  updateCry();
+  _H[_qp] = initH(_loop_num,_amp,_plane_file_name,_cry[_qp]);
 }
 
 void

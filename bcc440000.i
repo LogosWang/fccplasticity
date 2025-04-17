@@ -28,6 +28,30 @@
     order = CONSTANT
     family = MONOMIAL
   []
+  [H_1]
+    order = CONSTANT
+    family = MONOMIAL
+  []
+  [H_2]
+    order = CONSTANT
+    family = MONOMIAL
+  []
+  [H_3]
+    order = CONSTANT
+    family = MONOMIAL
+  []
+  [cry_1]
+    order = CONSTANT
+    family = MONOMIAL
+  []
+  [cry_2]
+    order = CONSTANT
+    family = MONOMIAL
+  []
+  [cry_3]
+    order = CONSTANT
+    family = MONOMIAL
+  []
   [stress_yy]
     order = CONSTANT
     family = MONOMIAL
@@ -639,7 +663,54 @@ execute_on = timestep_end
     index_i = 1
     execute_on = timestep_end
   []
-
+  [cry_1]
+  type = RankTwoAux
+  rank_two_tensor = crysrot
+  variable = cry_1
+  index_j = 0
+  index_i = 0
+  execute_on = timestep_end
+  []
+  [cry_2]
+  type = RankTwoAux
+  rank_two_tensor = crysrot
+  variable = cry_2
+  index_j = 1
+  index_i = 1
+  execute_on = timestep_end
+  []
+  [cry_3]
+  type = RankTwoAux
+  rank_two_tensor = crysrot
+  variable = cry_3
+  index_j = 2
+  index_i = 2
+  execute_on = timestep_end
+  []
+  [H_1]
+  type = RankTwoAux
+  rank_two_tensor = H
+  variable = H_1
+  index_j = 0
+  index_i = 0
+  execute_on = timestep_end
+  []
+  [H_2]
+  type = RankTwoAux
+  rank_two_tensor = H
+  variable = H_2
+  index_j = 1
+  index_i = 1
+  execute_on = timestep_end
+  []
+  [H_3]
+  type = RankTwoAux
+  rank_two_tensor = H
+  variable = H_3
+  index_j = 2
+  index_i = 2
+  execute_on = timestep_end
+  []
   [stress_yy]
   type = RankTwoAux
   rank_two_tensor = stress
@@ -1742,11 +1813,12 @@ execute_on = timestep_end
   []
   [slip_xtalpl]
     type = CrystalPlasticityUpdate
-    loop_num = 440
-    amp = 1000.0
+    loop_num = 44
+    amp = 10000.0
     number_slip_systems = 48
     slip_sys_file_name = input_slip_sys_bcc48.txt
-    plane_file_name = bcc_plane.txt
+    plane_file_name = bcc_plane.csv
+    euler_angle_variables = '1.0 2.0 1.0'
   []
 []
 
@@ -2390,8 +2462,30 @@ execute_on = timestep_end
   type = ElementAverageValue
   variable = gd_47
 []
-
-
+[H_1]
+  type = ElementAverageValue
+  variable = H_1
+[]
+[H_2]
+  type = ElementAverageValue
+  variable = H_2
+[]
+[H_3]
+  type = ElementAverageValue
+  variable = H_3
+[]
+[cry_1]
+  type = ElementAverageValue
+  variable = cry_1
+[]
+[cry_2]
+  type = ElementAverageValue
+  variable = cry_2
+[]
+[cry_3]
+  type = ElementAverageValue
+  variable = cry_3
+[]
   [disp_y]
     type = ElementExtremeValue
     variable = disp_y
@@ -2422,7 +2516,7 @@ execute_on = timestep_end
   nl_rel_tol = 1e-10
   nl_abs_step_tol = 1e-10
 
-  dt = 1e-7
+  dt = 5e-8
   dtmin = 1e-15
   end_time = 1e-3
 []

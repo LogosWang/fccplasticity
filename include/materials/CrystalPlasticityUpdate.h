@@ -13,6 +13,7 @@
 #include "RankTwoTensor.h"
 #include <random> 
 #include "libmesh/vector_value.h"
+#include "PropertyReadFile.h"
 #include "ComputeElasticityTensorCP.h"
 class CrystalPlasticityUpdate;
 
@@ -30,6 +31,7 @@ public:
   static InputParameters validParams();
 
   CrystalPlasticityUpdate(const InputParameters & parameters);
+  const PropertyReadFile * const _read_prop_user_object;
   FileName _plane_file_name;
 protected:
   /**
@@ -92,6 +94,7 @@ protected:
    */
   virtual bool areConstitutiveStateVariablesConverged() override;
   virtual void getSlipSystems() override;
+  void updateCry();
   std::vector<RealVectorValue> calplanenorm(const RankTwoTensor & crysrot);
   ///@{Varibles used in the Kalidindi 1992 slip system resistance constiutive model
   RankTwoTensor _I;
@@ -123,6 +126,9 @@ protected:
   /// Increment of increased resistance for each slip system
   std::vector<Real> _slip_resistance_increment;
   MaterialProperty<Real> & _disloc_h;
+  MaterialProperty<RankTwoTensor> & _cry;
+  const MaterialProperty<RealVectorValue> & _euler_ang;
+  MaterialProperty<RealVectorValue> & _euler_angle;
   MaterialProperty<RankTwoTensor> & _H;
   Real _disloc_h_increment;
   RankTwoTensor _H_increment;
@@ -171,4 +177,6 @@ protected:
   // using CrystalPlasticityStressUpdateBase::_slip_sys_file_name;
   // using CrystalPlasticityStressUpdateBase::_slip_direction;
   // using CrystalPlasticityStressUpdateBase::_slip_plane_normal;
+  unsigned int _n_euler_angle_vars;
+  const std::vector<const VariableValue *> _euler_angle_vars;
 };
