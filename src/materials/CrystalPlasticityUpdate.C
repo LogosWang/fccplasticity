@@ -51,7 +51,11 @@ CrystalPlasticityUpdate::validParams()
       "normal given before the slip plane direction.");
   params.addRequiredParam<FileName>("plane_file_name","irradiation");
   params.addCoupledVar("euler_angle_variables",
-    "Vector of coupled variables representing the Euler angles' components.");
+      "Vector of coupled variables representing the Euler angles' components.");
+  params.addParam<UserObjectName>("read_prop_user_object",
+      "The ElementReadPropertyFile "
+      "GeneralUserObject to read element "
+      "specific property values from file");
   return params;
 }
 
@@ -63,6 +67,8 @@ CrystalPlasticityUpdate::CrystalPlasticityUpdate(
                                ? &getUserObject<PropertyReadFile>("read_prop_user_object")
                                : nullptr),
     _plane_file_name(getParam<FileName>("plane_file_name")),
+    _H_list(),
+    _angle_list(),
     _T(getParam<Real>("T")),
     _T_critical(getParam<Real>("T_critical")),
     _loop_num(getParam<Real>("loop_num")),
@@ -116,6 +122,41 @@ CrystalPlasticityUpdate::CrystalPlasticityUpdate(
 
 {
   _theta=0.5*(1.0+std::tanh(_T/_T_critical));
+  std::cout<<_theta<<std::endl;
+  // computeQpProperties();
+}
+void CrystalPlasticityUpdate::computeQpP()
+{
+  std::cout<<_qp<<std::endl;
+  // _euler_angle.resize(n_qp);
+  std::cout<<_euler_angle.size()<<std::endl;
+  if (_read_prop_user_object)
+  {
+    _euler_angle[_qp](0) = _read_prop_user_object->getData(_current_elem, 0);
+    _euler_angle[_qp](1) = _read_prop_user_object->getData(_current_elem, 1);
+    _euler_angle[_qp](2) = _read_prop_user_object->getData(_current_elem, 2);
+  }
+  else if (_n_euler_angle_vars)
+  {
+    _euler_angle[_qp](0) = (*_euler_angle_vars[0])[_qp];
+    _euler_angle[_qp](1) = (*_euler_angle_vars[1])[_qp];
+    _euler_angle[_qp](2) = (*_euler_angle_vars[2])[_qp];
+  }
+  else{
+    _euler_angle[_qp](0) = 0.0;
+    _euler_angle[_qp](1) = 0.0;
+    _euler_angle[_qp](2) = 0.0;
+  }
+  std::cout<<_euler_angle[_qp]<<std::endl;
+  auto it = std::find(_angle_list.begin(), _angle_list.end(), _euler_angle[_qp]);
+  if (it == _angle_list.end())
+  {
+    _angle_list.push_back(_euler_angle[_qp]);
+    updateCry();
+    _H[_qp] = initH(_loop_num,_amp,_plane_file_name,_cry[_qp]);
+    _H_list.push_back(_H[_qp]);
+  }
+  std::cout<<_angle_list.size()<<_H_list.size()<<std::endl;
 }
 void CrystalPlasticityUpdate::updateCry()
 {
@@ -157,6 +198,19 @@ void CrystalPlasticityUpdate::updateCry()
 
   _R = Rz1 * Rx * Rz2;
   _cry[_qp]= _R.transpose();
+}
+void CrystalPlasticityUpdate::locateH()
+{
+  auto it = std::find(_angle_list.begin(), _angle_list.end(), _euler_angle[_qp]);
+  if (it == _angle_list.end())
+  {
+    std::cout<<"erro euler angle"<<std::endl;
+  
+  }
+  else{
+    unsigned idx = std::distance(_angle_list.begin(), it);
+    _H[_qp]=_H_list[idx];
+  }
 }
 void CrystalPlasticityUpdate::getSlipSystems()
 {
@@ -341,9 +395,10 @@ CrystalPlasticityUpdate::initQpStatefulProperties()
   }
   _disloc_density[_qp] = _disloc_density0;
   _disloc_h[_qp] = 20.0;
-  std::cout <<_crysrot[_qp]<< std::endl;
-  updateCry();
-  _H[_qp] = initH(_loop_num,_amp,_plane_file_name,_cry[_qp]);
+  computeQpP();
+  locateH();
+  // updateCry();
+  // _H[_qp] = initH(_loop_num,_amp,_plane_file_name,_cry[_qp]);
 }
 
 void

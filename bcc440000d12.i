@@ -3,51 +3,22 @@
 []
 
 [Mesh]
-construct_side_list_from_node_list = false   
-[cube]
-  type = FileMeshGenerator
-  file = polycrystal10.msh
-  []
-  [top_boundary]
-    type = BoundingBoxNodeSetGenerator
-    input = cube
-    new_boundary = 'top'
-    top_right = '1.1 1.1 1.1'
-    bottom_left = '-0.1 0.99 -0.1'
-  []
-  [create_sideset1]
-    type = SideSetsFromNodeSetsGenerator
-    input = top_boundary
-  []
-  [bottom_boundary]
-    type = BoundingBoxNodeSetGenerator
-    input = create_sideset1
-    new_boundary = 'bottom'
-    top_right = '1.1 0.1 1.1'
-    bottom_left = '-0.1 -0.1 -0.1'
-  []
-  [create_sideset2]
-    type = SideSetsFromNodeSetsGenerator
-    input = bottom_boundary
-  []
-  [scale]
-    type = TransformGenerator
-    input = create_sideset2
-    transform = SCALE
-    vector_value = '3e-3 3e-3 3e-3'
-  []
-
-[]
-
-
-[UserObjects]
-  [reader_element]
-    type = PropertyReadFile
-    prop_file_name = 'poly.csv'
-    read_type = 'element'
-    nprop = 3 # number of columns in CSV
+  [cube]
+    type = GeneratedMeshGenerator
+    dim = 3
+    nx = 80
+    ny = 80
+    nz = 80
+    xmin = 0.0
+    ymin = 0.0
+    zmin = 0.0
+    xmax = 0.003
+    ymax = 0.003
+    zmax = 0.003
+    elem_type = HEX8
   []
 []
+
 [AuxVariables]
   [fp_yy]
     order = CONSTANT
@@ -81,35 +52,11 @@ construct_side_list_from_node_list = false
     order = CONSTANT
     family = MONOMIAL
   []
-  [stress_zz]
-    order = CONSTANT
-    family = MONOMIAL
-  []
   [stress_yy]
     order = CONSTANT
     family = MONOMIAL
   []
-  [stress_xx]
-    order = CONSTANT
-    family = MONOMIAL
-  []
   [total_twin_volume_fraction]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [sliprate]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [euler_ang_0]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [euler_ang_1]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [euler_ang_2]
     order = CONSTANT
     family = MONOMIAL
   []
@@ -716,52 +663,7 @@ execute_on = timestep_end
     index_i = 1
     execute_on = timestep_end
   []
-  [stress_xx]
-  type = RankTwoAux
-  rank_two_tensor = stress
-  variable = stress_xx
-  index_j = 0
-  index_i = 0
-  execute_on = timestep_end
-  []
-  [stress_yy]
-  type = RankTwoAux
-  rank_two_tensor = stress
-  variable = stress_yy
-  index_j = 1
-  index_i = 1
-  execute_on = timestep_end
-  []
-  [stress_zz]
-  type = RankTwoAux
-  rank_two_tensor = stress
-  variable = stress_zz
-  index_j = 2
-  index_i = 2
-  execute_on = timestep_end
-  []
-  [euler_ang_0]
-  type = MaterialRealVectorValueAux
-  variable = euler_ang_0
-  property = Euler_angles
-  component = 0
-  execute_on = timestep_end
- []
- [euler_ang_1]
-  type = MaterialRealVectorValueAux
-  variable = euler_ang_1
-  property = Euler_angles
-  component = 1
-  execute_on = timestep_end
- []
- [euler_ang_2]
-  type = MaterialRealVectorValueAux
-  variable = euler_ang_2
-  property = Euler_angles
-  component = 2
-  execute_on = timestep_end
- []
- [cry_1]
+  [cry_1]
   type = RankTwoAux
   rank_two_tensor = crysrot
   variable = cry_1
@@ -807,6 +709,14 @@ execute_on = timestep_end
   variable = H_3
   index_j = 2
   index_i = 2
+  execute_on = timestep_end
+  []
+  [stress_yy]
+  type = RankTwoAux
+  rank_two_tensor = stress
+  variable = stress_yy
+  index_j = 1
+  index_i = 1
   execute_on = timestep_end
   []
   [slip_increment_0]
@@ -1870,21 +1780,10 @@ execute_on = timestep_end
  property = disloc_density
  execute_on = timestep_end
 []
-[sliprate]
-type = MaterialRealAux
-variable = sliprate
-property = sliprate
-execute_on = timestep_end
-[]
+  
 []
 
 [BCs]
-  [tdisp]
-    type = FunctionDirichletBC
-    variable = disp_y
-    boundary = 'top'
-    function = '(3e-1)*t'
-  []
   [fix_y]
     type = DirichletBC
     variable = disp_y
@@ -1892,7 +1791,12 @@ execute_on = timestep_end
     boundary = 'bottom'
     value = 0
   []
-  
+  [tdisp]
+    type = FunctionDirichletBC
+    variable = disp_y
+    boundary = top
+    function = '(3e-1)*t'
+  []
 []
 
 [Materials]
@@ -1900,7 +1804,7 @@ execute_on = timestep_end
     type = ComputeElasticityTensorCP
     C_ijkl = '2.36e5 1.34e5 1.34e5 2.36e5 1.34e5 2.36e5 1.19e5 1.19e5 1.19e5' 
     fill_method = symmetric9
-    read_prop_user_object = reader_element
+    euler_angle_variables = '1.0 2.0 1.0'
   []
   [stress]
     type = ComputeMultipleCrystalPlasticityStress
@@ -1913,31 +1817,23 @@ execute_on = timestep_end
     amp = 1000.0
     number_slip_systems = 48
     slip_sys_file_name = input_slip_sys_bcc48.txt
-    plane_file_name = bcc_plane.txt
-    read_prop_user_object = reader_element
+    plane_file_name = bcc_plane.csv
+    euler_angle_variables = '1.0 2.0 1.0'
   []
 []
 
 [Postprocessors]
 [stress_vm]
-   type = ElementExtremeValue
+   type = ElementAverageValue
    variable = stress_vm
 []
   [fp_yy]
     type = ElementExtremeValue
     variable = fp_yy
   []
-  [stress_xx]
-    type = ElementExtremeValue
-    variable = stress_xx
-  []
   [stress_yy]
-    type = ElementExtremeValue
+    type = ElementAverageValue
     variable = stress_yy
-  []
-  [stress_zz]
-    type = ElementExtremeValue
-    variable = stress_zz
   []
   [total_twin_volume_fraction]
     type = ElementAverageValue
@@ -2566,33 +2462,7 @@ execute_on = timestep_end
   type = ElementAverageValue
   variable = gd_47
 []
-
-[disp_x]
-type = ElementExtremeValue
-variable = disp_x
-value_type = max
-[]
-  [disp_y]
-    type = ElementExtremeValue
-    variable = disp_y
-    value_type = max
-  []
-  [disp_z]
-    type = ElementExtremeValue
-    variable = disp_z
-    value_type = max
-  []
-  [disloc_density]
-    type = ElementExtremeValue
-    variable = disloc_density
-    value_type = max
-  []
-  [sliprate]
-  type = ElementExtremeValue
-    variable = sliprate
-    value_type = max
-  []
-  [H_1]
+[H_1]
   type = ElementAverageValue
   variable = H_1
 []
@@ -2616,6 +2486,17 @@ value_type = max
   type = ElementAverageValue
   variable = cry_3
 []
+  [disp_y]
+    type = ElementExtremeValue
+    variable = disp_y
+    value_type = max
+  []
+  [disloc_density]
+    type = ElementExtremeValue
+    variable = disloc_density
+    value_type = max
+  []
+  
 []
 
 [Preconditioning]

@@ -6,9 +6,9 @@
   [cube]
     type = GeneratedMeshGenerator
     dim = 3
-    nx = 10
-    ny = 10
-    nz = 10
+    nx = 80
+    ny = 80
+    nz = 80
     xmin = 0.0
     ymin = 0.0
     zmin = 0.0
@@ -1817,7 +1817,7 @@ execute_on = timestep_end
     amp = 10000.0
     number_slip_systems = 48
     slip_sys_file_name = input_slip_sys_bcc48.txt
-    plane_file_name = bcc_plane.csv
+    plane_file_name = bcc_plane.txt
     euler_angle_variables = '1.0 2.0 1.0'
   []
 []

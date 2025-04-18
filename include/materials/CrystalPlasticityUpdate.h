@@ -15,6 +15,8 @@
 #include "libmesh/vector_value.h"
 #include "PropertyReadFile.h"
 #include "ComputeElasticityTensorCP.h"
+
+RankTwoTensor initH(Real _number_of_loop,Real _amp,FileName _plane_file_name,RankTwoTensor crysrot);
 class CrystalPlasticityUpdate;
 
 /**
@@ -38,6 +40,7 @@ protected:
    * initializes the stateful properties such as
    * stress, plastic deformation gradient, slip system resistances, etc.
    */
+  void computeQpP();
   virtual void initQpStatefulProperties() override;
 
   /**
@@ -95,8 +98,11 @@ protected:
   virtual bool areConstitutiveStateVariablesConverged() override;
   virtual void getSlipSystems() override;
   void updateCry();
+  void locateH();
   std::vector<RealVectorValue> calplanenorm(const RankTwoTensor & crysrot);
   ///@{Varibles used in the Kalidindi 1992 slip system resistance constiutive model
+  std::vector<RankTwoTensor> _H_list;
+  std::vector<RealVectorValue> _angle_list;
   RankTwoTensor _I;
   Real _T;
   Real _T_critical;
